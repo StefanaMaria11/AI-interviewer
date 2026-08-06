@@ -1,0 +1,50 @@
+services:
+
+  frontend:
+    build:
+      context: ./frontend
+
+    container_name: ai-interviewer-frontend
+
+    ports:
+      - "5000:80"
+
+    depends_on:
+      - backend
+
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+
+    container_name: ai-interviewer-backend
+
+    ports:
+      - "8000:8000"
+
+    volumes:
+      - ./data:/app/data
+
+    environment:
+      OLLAMA_URL: http://ollama:11434/api/generate
+      OLLAMA_MODEL: gemma3:1b
+
+    depends_on:
+      - ollama
+
+
+  ollama:
+    image: ollama/ollama
+
+    container_name: ai-interviewer-ollama
+
+    ports:
+      - "11434:11434"
+
+    volumes:
+      - ollama_data:/root/.ollama
+
+
+volumes:
+  ollama_data:

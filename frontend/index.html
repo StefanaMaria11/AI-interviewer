@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>AI Interviewer</title>
+
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <!-- Welcome popup -->
+    <div id="welcome-modal" class="modal">
+        <div class="modal-content welcome-box">
+
+            <h1>
+                AI Interviewer
+            </h1>
+
+            <p>
+                Welcome to the AI Engineering Intern interview simulation.
+            </p>
+            <p>
+                This interview is designed to understand your background,
+                motivation, technical knowledge, and problem-solving approach.
+            </p>
+
+            <h3>
+                How the interview works:
+            </h3>
+
+            <p>
+                The interview contains several stages:
+            </p>
+            <ul>
+                <li>
+                    <strong>Background:</strong>
+                    Your education, current situation, and previous experience.
+                </li>
+
+                <li>
+                    <strong>Motivation:</strong>
+                    Your interest in Artificial Intelligence and AI engineering.
+                </li>
+
+                <li>
+                    <strong>Experience:</strong>
+                    Your projects, practical experience, and engineering decisions.
+                </li>
+
+                <li>
+                    <strong>Technical Foundation:</strong>
+                    Your understanding of AI concepts and software development.
+                </li>
+
+                <li>
+                    <strong>Problem Solving:</strong>
+                    How you approach challenges and debugging situations.
+                </li>
+            </ul>
+
+            <p>
+                Answer each question naturally and provide details whenever
+                possible. The AI interviewer may ask follow-up questions
+                depending on your previous answers.
+            </p>
+
+            <p>
+                There are no perfect answers. The goal is to understand your
+                experience, knowledge level, and potential as an AI Engineering Intern.
+            </p>
+
+            <p>
+                At the end of the interview, you will receive an AI-generated
+                summary of your responses.
+            </p>
+
+            <button id="start-button" type="button">Start Interview</button>
+        </div>
+    </div>
+
+    <!-- Loading popup -->
+    <div id="loading-modal" class="modal hidden">
+        <div class="modal-content loading-box">
+            <div class="loader"></div>
+
+            <h2>
+                Generating your interview summary...
+            </h2>
+
+            <p>
+                Please wait a moment.
+            </p>
+        </div>
+    </div>
+
+    <!-- Summary popup -->
+    <div id="summary-modal" class="modal hidden">
+        <div class="modal-content summary-box">
+            <h1>
+                Interview Completed
+            </h1>
+
+            <p>
+                Here is your interview summary:
+            </p>
+
+            <div id="summary-text"></div>
+
+            <button id="exit-button" type="button">
+                Exit Interview
+            </button>
+        </div>
+    </div>
+
+    <!-- Chat interface -->
+    <div id="chat-container" class="hidden">
+        <div class="chat-header">AI Interviewer</div>
+
+        <div id="messages"></div>
+
+        <div class="input-area">
+            <textarea id="answer-input" placeholder="Type your answer..."></textarea>
+
+            <button id="send-button" type="button">Send</button>
+        </div>
+    </div>
+
+    <script src="script.js" defer></script>
+</body>
+
+</html>

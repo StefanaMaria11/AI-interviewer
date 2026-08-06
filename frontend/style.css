@@ -1,0 +1,308 @@
+* {
+    box-sizing: border-box;
+    font-family:
+        Inter,
+        "Segoe UI",
+        Roboto,
+        Arial,
+        sans-serif;
+}
+
+body {
+    margin: 0;
+    height: 100vh;
+    background:
+        linear-gradient(135deg,
+            #eef2ff,
+            #f8fafc);
+}
+
+.hidden {
+    display: none !important;
+}
+
+.modal {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 30px 15px;
+    overflow-y: auto;
+    background: rgba(15, 23, 42, 0.55);
+    z-index: 1000;
+}
+
+.modal-content {
+    background: white;
+    width: 520px;
+    max-width: 90%;
+    padding: 35px;
+    border-radius: 18px;
+    text-align: center;
+    box-shadow:
+        0 20px 50px rgba(0, 0, 0, 0.15);
+    margin: auto;
+}
+
+.modal-content h1 {
+    margin-top: 0;
+    margin-bottom: 20px;
+    color: #111827;
+}
+
+.modal-content p {
+    color: #4b5563;
+    line-height: 1.6;
+    margin-bottom: 15px;
+}
+
+.welcome-box {
+    text-align: left;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.welcome-box h1 {
+    text-align: center;
+}
+
+.welcome-box button {
+    display:block;
+    margin:30px auto 0;
+}
+
+.welcome-box .intro {
+    text-align: center;
+    font-size: 18px;
+}
+
+.interview-info {
+    margin-top: 25px;
+}
+
+.interview-info h3 {
+    color: #111827;
+}
+
+.interview-info ul {
+    padding-left: 25px;
+}
+
+.interview-info li {
+    margin-bottom: 12px;
+    line-height: 1.5;
+    color: #4b5563;
+}
+
+button {
+    border: none;
+    padding: 12px 25px;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 16px;
+    background: #2563eb;
+    color: white;
+    transition: 0.2s;
+}
+
+button:hover {
+    background: #1d4ed8;
+}
+
+button:disabled {
+    background: #94a3b8;
+    cursor: not-allowed;
+}
+
+#chat-container {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.chat-header {
+    height: 65px;
+    background: #111827;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 30px;
+    font-size: 21px;
+    font-weight: 600;
+}
+
+#stage-indicator {
+    font-size: 14px;
+    color: #cbd5e1;
+    text-transform: capitalize;
+}
+
+#messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 30px;
+}
+
+.message {
+    display: flex;
+    margin-bottom: 20px;
+}
+
+.ai-message {
+    justify-content: flex-start;
+}
+
+.user-message {
+    justify-content: flex-end;
+}
+
+.bubble {
+    max-width: 70%;
+    padding: 16px 20px;
+    border-radius: 18px;
+    line-height: 1.6;
+}
+
+.ai-message .bubble {
+    background: white;
+    border: 1px solid #e5e7eb;
+    color: #111827;
+}
+
+.user-message .bubble {
+    background: #2563eb;
+    color: white;
+}
+
+.bubble strong {
+    display: block;
+    margin-bottom: 8px;
+    font-size: 14px;
+}
+
+.bubble p {
+    margin: 0;
+    white-space: pre-wrap;
+}
+
+.input-area {
+    display: flex;
+    padding: 20px;
+    background: white;
+    border-top: 1px solid #e5e7eb;
+}
+
+textarea {
+    flex: 1;
+    resize: none;
+    height: 75px;
+    padding: 15px;
+    font-size: 16px;
+    border-radius: 12px;
+    border: 1px solid #cbd5e1;
+}
+
+textarea:focus {
+    outline: none;
+    border-color: #2563eb;
+}
+
+.input-area button {
+    margin-left: 15px;
+    width: 110px;
+}
+
+.loading-box h2 {
+    margin-top: 25px;
+}
+
+.loader {
+    width: 55px;
+    height: 55px;
+    border-radius: 50%;
+    border: 6px solid #e5e7eb;
+    border-top: 6px solid #2563eb;
+    margin: auto;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.summary-box {
+    width: 650px;
+    max-height: 80vh;
+    overflow-y: auto;
+}
+
+#summary-text {
+    background: #f1f5f9;
+    padding: 20px;
+    border-radius: 12px;
+    text-align: left;
+    line-height: 1.7;
+    margin: 20px 0;
+    white-space: pre-wrap;
+}
+
+.typing-bubble {
+    display: flex;
+    gap: 6px;
+    justify-content: center;
+    align-items: center;
+    width: 70px;
+}
+
+.typing-bubble span {
+    width: 8px;
+    height: 8px;
+    background: #64748b;
+    border-radius: 50%;
+    animation: typing 1.4s infinite;
+}
+
+.typing-bubble span:nth-child(2) {
+    animation-delay: .2s;
+}
+
+.typing-bubble span:nth-child(3) {
+    animation-delay: .4s;
+}
+
+@keyframes typing {
+    0%,
+    80%,
+    100% {
+        transform: scale(.6);
+        opacity: .4;
+    }
+    40% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+@media(max-width:700px) {
+    .bubble {
+        max-width: 85%;
+    }
+
+    .input-area {
+        flex-direction: column;
+    }
+
+    .input-area button {
+        width: 100%;
+        margin-left: 0;
+        margin-top: 10px;
+    }
+}

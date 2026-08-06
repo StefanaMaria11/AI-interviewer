@@ -1,0 +1,33 @@
+{
+    "topic": "AI Engineering Intern",
+    "stage": "END",
+    "questions": [
+        "Describe your current academic background briefly.",
+        "What specifically interests you about working as an AI Engineering Intern?",
+        "What projects or personal projects have you worked on that demonstrate your interest in AI?",
+        "Can you explain your approach to handling potential errors or unexpected inputs in a machine learning pipeline?",
+        "How do you typically approach problem-solving when faced with a complex task or challenge?"
+    ],
+    "answers": [
+        "My name is Michael Anderson, and I am currently a third-year Computer Science student. My academic background has mainly focused on software engineering, programming fundamentals, and databases.\n\nDuring my studies, I completed several assignments and group projects where I learned basic concepts of application development and teamwork. I have also explored some AI topics, but I have not yet built any significant AI-related projects.\n\nAt the moment, I am still developing my technical skills and trying to understand which areas of computer science I would like to focus on in the future. I am interested in learning more about artificial intelligence and software engineering.",
+        "I am interested in AI because it seems like an important field, but I am still not completely sure if it is the right career path for me. I have tried learning some AI concepts, but I found many topics confusing and sometimes frustrating. I would like to gain practical experience because my current knowledge is limited and I want to understand whether this is something I could improve at.",
+        "I have not completed many AI-focused personal projects so far. I tried experimenting with some basic machine learning tutorials and small examples, but I found it difficult to understand how the different concepts connect together.\n\nI worked on a small project where I attempted to use a language model API to generate responses based on user input. However, I struggled with getting consistent results and I was not able to develop it as much as I initially planned.\n\nI also explored some AI concepts through online resources, but I sometimes became stuck when trying to move from theory to implementation. I would like to gain more practical experience because my current understanding is still limited.",
+        "My approach would be to first try to identify where the unexpected behavior is coming from, but I have limited experience working with complete machine learning pipelines.\n\nIn the small AI projects I tried, I encountered situations where the input data was not in the format I expected or where the model produced inconsistent outputs. Sometimes I became stuck because it was difficult to understand whether the issue was caused by the data, the model, or the implementation.\n\nI would usually start by checking logs, validating the input data, and testing smaller parts of the pipeline separately. However, I still find debugging machine learning systems challenging because there can be many factors influencing the results.\n\nI think improving my understanding of data validation, monitoring, and evaluation methods would help me handle these situations better in the future.",
+        "When I face a complex task, I usually try to break it down into smaller steps and understand what the main goal is before starting implementation.\n\nHowever, I sometimes have difficulty deciding where to begin when the problem is unfamiliar or when there are many possible approaches. In those situations, I usually search for documentation, tutorials, or examples to better understand the topic.\n\nI try to make progress by solving smaller parts of the problem first and learning along the way. I have noticed that I still need to improve my ability to work independently on more complex technical challenges, especially when there is not a clear solution available.\n\nI see these situations as opportunities to improve my skills and become more comfortable with unfamiliar technologies."
+    ],
+    "summary": "Objective Professional Summary:\n\nMichael Anderson is a third-year Computer Science student seeking an AI Engineering Intern position.  He possesses a foundational understanding of software engineering principles, programming fundamentals, and database concepts, complemented by exploration into AI topics. While currently lacking extensive practical experience in AI development, he demonstrates a proactive approach to learning through individual projects \u2013 including experimentation with machine learning tutorials and small implementations like generating responses from an API. He is eager to gain hands-on experience within the field of artificial intelligence and software engineering, recognizing that improved understanding and practical skills are crucial for his continued growth as a technology professional.",
+    "analysis": {
+        "keywords": [
+            "learning",
+            "machine",
+            "model",
+            "understand",
+            "still"
+        ],
+        "sentiment": {
+            "sentiment": "positive",
+            "positive_score": 5,
+            "negative_score": 3
+        }
+    }
+}
