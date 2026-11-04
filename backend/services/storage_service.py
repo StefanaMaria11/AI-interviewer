@@ -1,5 +1,6 @@
 import json
 import os
+from uuid import UUID
 from backend.models.interview import Interview
 
 
@@ -12,7 +13,7 @@ class StorageService:
         os.makedirs(DATA_FOLDER, exist_ok=True)
 
 
-    def save_interview(self, interview_id: int, interview: Interview):
+    def save_interview(self, interview_id: UUID, interview: Interview):
 
         file_path = f"{DATA_FOLDER}/interview_{interview_id}.json"
 
@@ -25,7 +26,7 @@ class StorageService:
             )
 
 
-    def load_interview(self, interview_id: int):
+    def load_interview(self, interview_id: UUID):
 
         file_path = f"{DATA_FOLDER}/interview_{interview_id}.json"
 
