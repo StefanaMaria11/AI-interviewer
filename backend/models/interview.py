@@ -11,6 +11,20 @@ class InterviewStage(str, Enum):
     SUMMARY = "SUMMARY"
     END = "END"
 
+class FeedbackPoint(BaseModel):
+    observation: str
+    evidence: str
+    suggestion: str | None = None
+
+class InterviewFeedback(BaseModel):
+    strengths: list[FeedbackPoint] = Field(
+        default_factory=list
+    )
+    improvements: list[FeedbackPoint] = Field(
+        default_factory=list
+    )
+    overall_feedback: str
+
 class Interview(BaseModel):
     topic: str = Field(
         description="The position/topic of the interview"
@@ -39,4 +53,9 @@ class Interview(BaseModel):
     analysis: dict = Field(
         default_factory=dict,
         description="Automatic interview analysis"
+    )
+
+    feedback: InterviewFeedback | None = Field(
+        default=None,
+        description="Structured AI-generated interview feedback"
     )

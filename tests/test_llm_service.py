@@ -2,9 +2,10 @@ from unittest.mock import Mock, patch
 
 import pytest
 import requests
+import json
 
 from backend.services.llm_service import LLMService, LLMServiceError
-
+from backend.models.interview import InterviewFeedback
 
 @pytest.mark.parametrize(
     "payload, expected",
@@ -97,3 +98,90 @@ def test_generate_handles_http_error():
             LLMService().generate("Ask one question.")
 
     response.json.assert_not_called()
+
+def test_generate_structured_feedback():
+    feedback_data = {
+        "strengths": [
+            {
+                "observation": "Practical API experience",
+                "evidence": "I built a FastAPI application.",
+                "suggestion": None
+            }
+        ],
+        "improvements": [],
+        "overall_feedback": "The candidate has backend experience."
+    }
+
+    mock_response = Mock()
+    mock_response.json.return_value = {
+        "response": json.dumps(feedback_data)
+    }
+
+    with patch(
+        "backend.services.llm_service.requests.post",
+        return_value=mock_response
+    ) as mock_post:
+
+        feedback = LLMService().generate_structured(
+            prompt="Evaluate the interview.",
+            response_model=InterviewFeedback
+        )
+
+    assert isinstance(feedback, InterviewFeedback)
+
+    assert feedback.strengths[0].observation == (
+        "Practical API experience"
+    )
+
+    assert feedback.overall_feedback == (
+        "The candidate has backend experience."
+    )
+
+    # Verify that Ollama receives the Pydantic JSON schema
+    request_data = mock_post.call_args.kwargs["json"]
+
+    assert request_data["format"] == (
+        InterviewFeedback.model_json_schema()
+    )
+
+    assert request_data["stream"] is False
+
+@pytest.mark.parametrize(
+    "raw_output",
+    [
+        "This is not JSON",
+        '{"strengths": []}',
+        '{"strengths": [], "improvements": [], "overall_feedback": 123}',
+        "",
+    ]
+)
+def test_generate_structured_rejects_invalid_data(raw_output):
+    mock_response = Mock()
+    mock_response.json.return_value = {
+        "response": raw_output
+    }
+
+    with patch(
+        "backend.services.llm_service.requests.post",
+        return_value=mock_response
+    ):
+        with pytest.raises(LLMServiceError):
+            LLMService().generate_structured(
+                prompt="Evaluate the interview.",
+                response_model=InterviewFeedback
+            )
+
+
+def test_generate_structured_handles_connection_error():
+    with patch(
+        "backend.services.llm_service.requests.post",
+        side_effect=requests.exceptions.ConnectionError()
+    ):
+        with pytest.raises(
+            LLMServiceError,
+            match="unavailable"
+        ):
+            LLMService().generate_structured(
+                prompt="Evaluate the interview.",
+                response_model=InterviewFeedback
+            )
