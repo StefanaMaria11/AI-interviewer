@@ -141,3 +141,32 @@ def get_summary(interview_id: UUID):
     storage_service.save_interview(interview_id, interview)
 
     return {"summary": summary}
+
+@app.post("/interview/{interview_id}/feedback")
+def get_feedback(interview_id: UUID):
+    interview = storage_service.load_interview(interview_id)
+
+    if interview is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Interview not found"
+        )
+
+    if interview.stage != InterviewStage.END:
+        raise HTTPException(
+            status_code=409,
+            detail="Interview is not finished"
+        )
+
+    try:
+        feedback = interviewer_service.generate_feedback(interview)
+
+    except ValueError as e:
+        raise HTTPException(
+            status_code=502,
+            detail="AI feedback could not be validated"
+        ) from e
+
+    storage_service.save_interview(interview_id, interview)
+
+    return {"feedback": feedback.model_dump()}

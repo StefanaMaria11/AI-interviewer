@@ -1,7 +1,7 @@
 import pytest
 from fastapi.testclient import TestClient
 from backend.main import app, interviewer_service
-from backend.models.interview import InterviewStage
+from backend.models.interview import InterviewStage, InterviewFeedback, FeedbackPoint
 
 client = TestClient(app)
 
@@ -230,3 +230,90 @@ def test_summary_generated_only_once(monkeypatch):
 
     # The LLM should only be called once
     assert call_count == 1
+
+def test_feedback_endpoint(monkeypatch):
+    expected_feedback = InterviewFeedback(
+        strengths=[
+            FeedbackPoint(
+                observation="Backend experience",
+                evidence="I built a FastAPI application."
+            )
+        ],
+        improvements=[],
+        overall_feedback="The candidate demonstrated backend experience."
+    )
+
+    def fake_generate_feedback(interview):
+        interview.feedback = expected_feedback
+        return expected_feedback
+
+    monkeypatch.setattr(
+        interviewer_service,
+        "generate_feedback",
+        fake_generate_feedback
+    )
+
+    start = client.post(
+        "/start-interview",
+        json={"topic": "Junior AI Engineer"}
+    )
+    interview_id = start.json()["interview_id"]
+
+    # Complete the interview
+    for _ in range(5):
+        client.post(
+            f"/interview/{interview_id}/answer",
+            json={"answer": "I built a FastAPI application."}
+        )
+
+    client.get(f"/interview/{interview_id}/summary")
+
+    # Request feedback
+    response = client.post(
+        f"/interview/{interview_id}/feedback"
+    )
+
+    assert response.status_code == 200
+    assert response.json()["feedback"] == expected_feedback.model_dump()
+
+    # Verify persistence
+    saved = client.get(f"/interview/{interview_id}")
+
+    assert saved.json()["feedback"] == expected_feedback.model_dump()
+
+def test_feedback_endpoint_handles_invalid_evidence(monkeypatch):
+    start = client.post(
+        "/start-interview",
+        json={"topic": "Junior AI Engineer"}
+    )
+
+    interview_id = start.json()["interview_id"]
+
+    for _ in range(5):
+        client.post(
+            f"/interview/{interview_id}/answer",
+            json={"answer": "I built a FastAPI application."}
+        )
+
+    client.get(f"/interview/{interview_id}/summary")
+
+    def invalid_feedback(interview):
+        raise ValueError("Feedback evidence not found")
+
+    monkeypatch.setattr(
+        interviewer_service,
+        "generate_feedback",
+        invalid_feedback
+    )
+
+    response = client.post(
+        f"/interview/{interview_id}/feedback"
+    )
+
+    assert response.status_code == 502
+    assert response.json() == {
+        "detail": "AI feedback could not be validated"
+    }
+
+    saved = client.get(f"/interview/{interview_id}")
+    assert saved.json()["feedback"] is None
