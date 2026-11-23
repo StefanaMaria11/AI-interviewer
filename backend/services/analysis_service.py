@@ -95,46 +95,57 @@ class AnalysisService:
 
         return ranked_words[:limit]
 
+    
     def analyze_sentiment(self, answers: list[str]):
         positive_words = {
-            "enjoy",
-            "like",
-            "love",
-            "interesting",
-            "excited",
-            "successful",
-            "learned",
-            "improved",
-            "motivated"
+            "enjoy", "like", "love", "interesting",
+            "excited", "successful", "learned",
+            "improved", "motivated"
         }
 
         negative_words = {
-            "failed",
-            "frustrating",
-            "blocked",
-            "stuck",
-            "impossible",
-            "disappointed"
+            "failed", "frustrating", "blocked",
+            "stuck", "impossible", "disappointed"
+        }
+
+        negation_words = {
+            "not", "never", "no", "cannot",
+            "don't", "didn't", "doesn't",
+            "can't", "won't", "wasn't",
+            "isn't", "aren't", "weren't"
         }
 
         text = " ".join(answers).lower()
 
-        positive_score = sum(
-            text.count(word)
-            for word in positive_words
+        # Preserve contractions such as "don't"
+        words = re.findall(
+            r"\b[a-z]+(?:'[a-z]+)?\b",
+            text
         )
 
-        negative_score = sum(
-            text.count(word)
-            for word in negative_words
-        )
+        positive_score = 0
+        negative_score = 0
+
+        for index, word in enumerate(words):
+            is_negated = (
+                index > 0
+                and words[index - 1] in negation_words
+            )
+
+            if word in positive_words:
+                if is_negated:
+                    negative_score += 1
+                else:
+                    positive_score += 1
+
+            elif word in negative_words:
+                if not is_negated:
+                    negative_score += 1
 
         if positive_score > negative_score:
             sentiment = "positive"
-
         elif negative_score > positive_score:
             sentiment = "challenging"
-
         else:
             sentiment = "neutral"
 

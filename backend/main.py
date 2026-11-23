@@ -73,6 +73,15 @@ def answer_interview(interview_id: UUID, answer_request: AnswerRequest):
             status_code=404,
             detail="Interview not found"
         )
+    
+    if interview.stage in (
+        InterviewStage.SUMMARY,
+        InterviewStage.END
+    ):
+        raise HTTPException(
+            status_code=409,
+            detail="Interview is already finished"
+        )
 
     interviewer_service.add_answer(interview, answer_request.answer)
 
@@ -115,10 +124,20 @@ def get_summary(interview_id: UUID):
             detail="Interview not found"
         )
 
+    if interview.stage not in (
+        InterviewStage.SUMMARY,
+        InterviewStage.END
+    ):
+        raise HTTPException(
+            status_code=409,
+            detail="Interview is not finished"
+        )
+
+    if interview.stage == InterviewStage.END:
+        return {"summary": interview.summary}
+
     summary = interviewer_service.generate_summary(interview)
 
     storage_service.save_interview(interview_id, interview)
 
-    return {
-        "summary": summary
-    }
+    return {"summary": summary}

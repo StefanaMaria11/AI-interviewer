@@ -1,6 +1,7 @@
 import pytest
 from fastapi.testclient import TestClient
 from backend.main import app, interviewer_service
+from backend.models.interview import InterviewStage
 
 client = TestClient(app)
 
@@ -8,7 +9,10 @@ def fake_generate_question(interview):
     return "Fake interview question?"
 
 def fake_generate_summary(interview):
-    return "Fake summary"
+    interview.summary = "Fake summary"
+    interview.stage = InterviewStage.END
+    return interview.summary
+
 
 @pytest.fixture(autouse=True)
 def mock_llm(monkeypatch):
@@ -85,27 +89,144 @@ def test_answer_interview():
     assert "question" in data
     assert "stage" in data
 
-def test_missing_interview():
-    response = client.get( "/interview/999999")
 
-    assert response.status_code == 200
-    assert response.json()=={
-        "error":
-        "Interview not found"
+def test_missing_interview():
+    missing_id = "00000000-0000-4000-8000-000000000000"
+
+    response = client.get(f"/interview/{missing_id}")
+
+    assert response.status_code == 404
+    assert response.json() == {
+        "detail": "Interview not found"
     }
+
+
+def test_invalid_interview_id():
+    response = client.get("/interview/not-a-uuid")
+
+    assert response.status_code == 422
+
+
 
 def test_summary():
-    start = client.post("/start-interview",
-                        json={
-                            "topic":"AI Engineering Intern"
-                            })
+    start = client.post(
+        "/start-interview",
+        json={"topic": "AI Engineering Intern"}
+    )
 
-    interview_id = (start.json()["interview_id"])
+    interview_id = start.json()["interview_id"]
 
-    response = client.get( f"/interview/{interview_id}/summary")
+    for _ in range(5):
+        response = client.post(
+            f"/interview/{interview_id}/answer",
+            json={"answer": "Test answer"}
+        )
+        assert response.status_code == 200
+
+    response = client.get(
+        f"/interview/{interview_id}/summary"
+    )
 
     assert response.status_code == 200
-    assert response.json()=={
-        "summary":
-        "Fake summary"
+    assert response.json() == {
+        "summary": "Fake summary"
     }
+
+
+
+def test_summary_before_interview_completion():
+    start = client.post(
+        "/start-interview",
+        json={"topic": "AI Engineering Intern"}
+    )
+
+    interview_id = start.json()["interview_id"]
+
+    response = client.get(
+        f"/interview/{interview_id}/summary"
+    )
+
+    assert response.status_code == 409
+    assert response.json() == {
+        "detail": "Interview is not finished"
+    }
+
+def test_cannot_answer_completed_interview():
+    start = client.post(
+        "/start-interview",
+        json={"topic": "AI Engineering Intern"}
+    )
+
+    interview_id = start.json()["interview_id"]
+
+    # Complete all five interview stages
+    for _ in range(5):
+        response = client.post(
+            f"/interview/{interview_id}/answer",
+            json={"answer": "Test answer"}
+        )
+        assert response.status_code == 200
+
+    # Generate the final summary
+    summary_response = client.get(
+        f"/interview/{interview_id}/summary"
+    )
+
+    assert summary_response.status_code == 200
+
+    # Attempt to answer after completion
+    response = client.post(
+        f"/interview/{interview_id}/answer",
+        json={"answer": "Another answer"}
+    )
+
+    assert response.status_code == 409
+    assert response.json() == {
+        "detail": "Interview is already finished"
+    }
+
+def test_summary_generated_only_once(monkeypatch):
+    call_count = 0
+
+    def tracked_generate_summary(interview):
+        nonlocal call_count
+        call_count += 1
+        return fake_generate_summary(interview)
+
+    monkeypatch.setattr(
+        interviewer_service,
+        "generate_summary",
+        tracked_generate_summary
+    )
+
+    start = client.post(
+        "/start-interview",
+        json={"topic": "AI Engineering Intern"}
+    )
+
+    interview_id = start.json()["interview_id"]
+
+    # Complete the interview
+    for _ in range(5):
+        response = client.post(
+            f"/interview/{interview_id}/answer",
+            json={"answer": "Test answer"}
+        )
+        assert response.status_code == 200
+
+    # Request summary twice
+    first = client.get(
+        f"/interview/{interview_id}/summary"
+    )
+
+    second = client.get(
+        f"/interview/{interview_id}/summary"
+    )
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+
+    assert first.json() == second.json()
+
+    # The LLM should only be called once
+    assert call_count == 1
