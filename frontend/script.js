@@ -14,8 +14,13 @@ const loadingModal = document.getElementById("loading-modal");
 const summaryModal = document.getElementById("summary-modal");
 const summaryText = document.getElementById("summary-text");
 const exitButton = document.getElementById("exit-button");
-const stageIndicator =
-    document.getElementById("stage-indicator");
+const stageIndicator = document.getElementById("stage-indicator");
+const feedbackButton = document.getElementById("feedback-button");
+const feedbackStatus = document.getElementById("feedback-status");
+const feedbackContainer = document.getElementById("feedback-container");
+const feedbackStrengths = document.getElementById("feedback-strengths");
+const feedbackImprovements = document.getElementById("feedback-improvements");
+const feedbackOverall = document.getElementById("feedback-overall");
 
 startButton.addEventListener(
     "click",
@@ -37,6 +42,8 @@ answerInput.addEventListener(
     }
 );
 
+feedbackButton.addEventListener("click", generateFeedback);
+
 exitButton.addEventListener(
     "click",
     () => {
@@ -51,57 +58,63 @@ exitButton.addEventListener(
     }
 );
 
+
 async function startInterview() {
     welcomeModal.classList.add("hidden");
     chatContainer.classList.remove("hidden");
 
-    addMessage(
-        "AI",
-        "Connecting to interviewer..."
-    );
+    messages.replaceChildren();
+    showTypingIndicator();
 
     try {
-        const response =
-            await fetch(
-                `${API_URL}/start-interview`,
-                {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json"
-                    },
-                    body: JSON.stringify({
-                        topic: "AI Engineering Intern"
-                    })
-                }
-            );
-
-        const data =
-            await response.json();
-
-        messages.innerHTML = "";
-
-        interviewId =
-            data.interview_id;
-
-        updateStage(
-            data.stage
+        const response = await fetch(
+            `${API_URL}/start-interview`,
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    topic: "AI Engineering Intern"
+                })
+            }
         );
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.detail || `HTTP ${response.status}`);
+        }
+
+        if (!data.interview_id || !data.question) {
+            throw new Error("The server did not return a question.");
+        }
+
+        interviewId = data.interview_id;
+        updateStage(data.stage);
+
+        removeTypingIndicator();
+        addMessage("AI", data.question);
+
+        answerInput.focus();
+
+    } catch (error) {
+        console.error("Failed to start interview:", error);
+
+        removeTypingIndicator();
 
         addMessage(
             "AI",
-            data.question
+            "I couldn't prepare the first question. Please try again."
         );
-    }
 
-    catch (error) {
-        console.error(error);
-
-        addMessage(
-            "AI",
-            "Failed to connect."
-        );
+        const retryButton = document.createElement("button");
+        retryButton.textContent = "Try again";
+        retryButton.addEventListener("click", startInterview);
+        messages.appendChild(retryButton);
     }
 }
+
 
 async function sendAnswer() {
     if (interviewFinished)
@@ -294,4 +307,75 @@ function removeTypingIndicator() {
     if (typing) {
         typing.remove();
     }
+}
+
+async function generateFeedback() {
+    feedbackButton.disabled = true;
+    feedbackStatus.textContent = "Generating feedback...";
+
+    try {
+        const response = await fetch(
+            `${API_URL}/interview/${interviewId}/feedback`,
+            { method: "POST" }
+        );
+
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+
+        const data = await response.json();
+        const feedback = data.feedback;
+
+        renderFeedbackPoints(
+            feedbackStrengths,
+            feedback.strengths
+        );
+
+        renderFeedbackPoints(
+            feedbackImprovements,
+            feedback.improvements
+        );
+
+        feedbackOverall.textContent = feedback.overall_feedback;
+
+        feedbackContainer.classList.remove("hidden");
+        feedbackButton.classList.add("hidden");
+        feedbackStatus.textContent = "";
+
+    } catch (error) {
+        console.error(error);
+        feedbackStatus.textContent =
+            "Could not generate feedback. Please try again.";
+        feedbackButton.disabled = false;
+    }
+}
+
+function renderFeedbackPoints(container, points) {
+    container.replaceChildren();
+
+    if (points.length === 0) {
+        container.textContent = "No observations available.";
+        return;
+    }
+
+    points.forEach(point => {
+        const item = document.createElement("div");
+        item.className = "feedback-point";
+
+        const observation = document.createElement("h4");
+        observation.textContent = point.observation;
+
+        const evidence = document.createElement("p");
+        evidence.textContent = `Evidence: "${point.evidence}"`;
+
+        item.append(observation, evidence);
+
+        if (point.suggestion) {
+            const suggestion = document.createElement("p");
+            suggestion.textContent = `Suggestion: ${point.suggestion}`;
+            item.appendChild(suggestion);
+        }
+
+        container.appendChild(item);
+    });
 }

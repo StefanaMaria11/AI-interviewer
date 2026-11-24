@@ -25,6 +25,20 @@ class InterviewFeedback(BaseModel):
     )
     overall_feedback: str
 
+class FeedbackReference(BaseModel):
+    observation: str
+    answer_id: int = Field(ge=1)
+    suggestion: str | None = None
+
+class GeneratedInterviewFeedback(BaseModel):
+    strengths: list[FeedbackReference] = Field(
+        default_factory=list
+    )
+    improvements: list[FeedbackReference] = Field(
+        default_factory=list
+    )
+    overall_feedback: str
+
 class Interview(BaseModel):
     topic: str = Field(
         description="The position/topic of the interview"

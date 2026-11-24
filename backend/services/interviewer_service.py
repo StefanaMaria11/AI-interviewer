@@ -1,4 +1,5 @@
-from backend.models.interview import Interview, InterviewStage, InterviewFeedback
+from backend.models.interview import Interview, InterviewStage, InterviewFeedback, FeedbackPoint, GeneratedInterviewFeedback
+from backend.prompts.feedback_prompts import build_referenced_feedback_prompt
 from backend.prompts.interviewer_prompts import build_interview_prompt, build_feedback_prompt
 from backend.services.llm_service import LLMService
 from backend.services.analysis_service import AnalysisService
@@ -54,34 +55,79 @@ class InterviewerService:
 
         return summary
     
+    
+    
     def generate_feedback(self, interview: Interview) -> InterviewFeedback:
         if interview.stage != InterviewStage.END:
             raise ValueError("Interview is not finished")
 
-        # Return previously generated feedback
+        # Return cached feedback
         if interview.feedback is not None:
             return interview.feedback
-        
-        context = self._build_context(interview)
 
-        prompt = build_feedback_prompt(
+        # Build prompt using numbered candidate answers
+        prompt = build_referenced_feedback_prompt(
             topic=interview.topic,
-            transcript=context
+            answers=interview.answers
         )
 
-        feedback = self.llm.generate_structured(
+        # Generate structured feedback with answer references
+        generated = self.llm.generate_structured(
             prompt=prompt,
-            response_model=InterviewFeedback
+            response_model=GeneratedInterviewFeedback
         )
 
-        self._validate_feedback_evidence(
+        # Validate references and retrieve original answers
+        feedback = self._resolve_feedback_references(
             interview,
-            feedback
+            generated
         )
 
+        # Cache the validated feedback
         interview.feedback = feedback
 
         return feedback
+
+
+    def _resolve_feedback_references(
+        self,
+        interview: Interview,
+        generated: GeneratedInterviewFeedback
+    ) -> InterviewFeedback:
+
+        def resolve_points(points):
+            resolved = []
+
+            for point in points:
+                index = point.answer_id - 1
+
+                if not 0 <= index < len(interview.answers):
+                    raise ValueError(
+                        f"Invalid feedback answer ID: {point.answer_id}"
+                    )
+
+                evidence = interview.answers[index]
+
+                if not evidence.strip():
+                    raise ValueError(
+                        f"Invalid feedback answer ID: {point.answer_id}"
+                    )
+
+                resolved.append(
+                    FeedbackPoint(
+                        observation=point.observation,
+                        evidence=evidence,
+                        suggestion=point.suggestion
+                    )
+                )
+
+            return resolved
+
+        return InterviewFeedback(
+            strengths=resolve_points(generated.strengths),
+            improvements=resolve_points(generated.improvements),
+            overall_feedback=generated.overall_feedback
+        )
 
     def _build_context(self, interview: Interview) -> str:
         conversation = "" 
@@ -110,26 +156,3 @@ Candidate:
 
         if current_index < len(stages) - 1:
             interview.stage = stages[current_index + 1]
-
-    
-    def _validate_feedback_evidence(self, interview: Interview, feedback: InterviewFeedback) -> None:
-        feedback_points = (feedback.strengths + feedback.improvements)
-
-        for point in feedback_points:
-            evidence = point.evidence.strip()
-
-            if not evidence:
-                raise ValueError(
-                    "Feedback evidence not found: empty evidence"
-                )
-
-            evidence_found = any(
-                evidence in answer
-                for answer in interview.answers
-            )
-
-            if not evidence_found:
-                raise ValueError(
-                    "Feedback evidence not found in candidate answers"
-                )
-

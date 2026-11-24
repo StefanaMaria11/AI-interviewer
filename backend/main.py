@@ -1,3 +1,4 @@
+import logging
 from uuid import UUID, uuid4
 from fastapi import FastAPI, Path, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -7,6 +8,8 @@ from backend.models.interview import Interview, InterviewStage
 from backend.services.interviewer_service import InterviewerService
 from backend.services.storage_service import StorageService
 from backend.services.llm_service import LLMServiceError
+
+logger = logging.getLogger(__name__)
 
 app = FastAPI()
 
@@ -162,6 +165,12 @@ def get_feedback(interview_id: UUID):
         feedback = interviewer_service.generate_feedback(interview)
 
     except ValueError as e:
+        logger.warning(
+            "Feedback validation failed for interview %s: %s",
+            interview_id,
+            e
+        )
+        
         raise HTTPException(
             status_code=502,
             detail="AI feedback could not be validated"

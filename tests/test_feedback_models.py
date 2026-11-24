@@ -5,7 +5,9 @@ from backend.models.interview import (
     Interview,
     InterviewStage,
     InterviewFeedback,
-    FeedbackPoint
+    FeedbackPoint,
+    FeedbackReference,
+    GeneratedInterviewFeedback
 )
 
 def test_feedback_serialization():
@@ -53,4 +55,21 @@ def test_feedback_requires_overall_feedback():
         InterviewFeedback(
             strengths=[],
             improvements=[]
+        )
+
+def test_feedback_reference():
+    reference = FeedbackReference(
+        observation="Backend development experience",
+        answer_id=3
+    )
+
+    assert reference.answer_id == 3
+    assert reference.suggestion is None
+
+
+def test_feedback_reference_rejects_invalid_id():
+    with pytest.raises(ValidationError):
+        FeedbackReference(
+            observation="Backend development experience",
+            answer_id=0
         )
