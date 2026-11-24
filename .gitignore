@@ -10,3 +10,8 @@ __pycache__/
 .pytest_cache/
 
 data/interviews/
+
+# InterviewHub
+interview-hub/backend/.venv/
+interview-hub/.env
+interview-hub/**/__pycache__/
