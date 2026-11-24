@@ -366,9 +366,50 @@ function renderFeedbackPoints(container, points) {
         observation.textContent = point.observation;
 
         const evidence = document.createElement("p");
-        evidence.textContent = `Evidence: "${point.evidence}"`;
+        evidence.className = "feedback-evidence";
+
+        const fullEvidence = point.evidence;
+        const maxLength = 220;
+
+        const isLong = fullEvidence.length > maxLength;
+
+        const preview = isLong
+            ? fullEvidence.slice(0, maxLength).trimEnd() + "..."
+            : fullEvidence;
+
+        evidence.textContent = `Evidence: "${preview}"`;
 
         item.append(observation, evidence);
+
+        if (isLong) {
+            const toggleButton = document.createElement("button");
+            toggleButton.type = "button";
+            toggleButton.className = "evidence-toggle";
+            toggleButton.textContent = "Show more";
+            toggleButton.setAttribute("aria-expanded", "false");
+
+            let expanded = false;
+
+            toggleButton.addEventListener("click", () => {
+                expanded = !expanded;
+
+                evidence.textContent = expanded
+                    ? `Evidence: "${fullEvidence}"`
+                    : `Evidence: "${preview}"`;
+
+                toggleButton.textContent = expanded
+                    ? "Show less"
+                    : "Show more";
+
+                toggleButton.setAttribute(
+                    "aria-expanded",
+                    String(expanded)
+                );
+            });
+
+            item.appendChild(toggleButton);
+        }
+
 
         if (point.suggestion) {
             const suggestion = document.createElement("p");

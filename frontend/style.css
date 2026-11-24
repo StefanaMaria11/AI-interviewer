@@ -310,6 +310,30 @@ textarea:focus {
     line-height: 1.7;
 }
 
+.feedback-evidence {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    color: var(--muted);
+    line-height: 1.6;
+}
+
+.evidence-toggle {
+    padding: 6px 0;
+    background: transparent;
+    color: var(--primary);
+    border: none;
+    border-radius: 0;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.evidence-toggle:hover:not(:disabled) {
+    background: transparent;
+    color: var(--primary-hover);
+    text-decoration: underline;
+    transform: none;
+}
+
 /* ===== Typing Indicator ===== */
 
 .typing-bubble {
