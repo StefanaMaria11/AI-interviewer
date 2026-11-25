@@ -3,7 +3,7 @@ import os
 from fastapi import FastAPI, Depends, HTTPException, BackgroundTasks, Request, Response
 from uuid import uuid4
 
-from sqlalchemy import text
+from sqlalchemy import text, select
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 
@@ -11,9 +11,11 @@ from app.database import get_db
 from app.models.candidate import Candidate
 from app.schemas.candidate import CandidateCreate
 from app.schemas.email_verification import VerifyEmailRequest
+from app.schemas.login import LoginRequest, CompleteLoginRequest
 from app.services.email_verification_service import create_verification_token, verify_email_token
-from app.services.email_service import send_verification_email
+from app.services.email_service import send_verification_email, send_login_email
 from app.services.session_service import create_candidate_session, get_authenticated_candidate, revoke_candidate_session
+from app.services.login_service import create_login_token, consume_login_token
 
 
 app = FastAPI(
@@ -205,3 +207,77 @@ def logout_candidate(
     )
 
     return {"message": "Logged out successfully"}
+
+@app.post("/auth/request-login")
+def request_candidate_login(
+    login_data: LoginRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+):
+    candidate = db.scalar(
+        select(Candidate).where(
+            Candidate.email == login_data.email
+        )
+    )
+
+    if candidate is not None and candidate.email_verified_at is not None:
+        try:
+            raw_token = create_login_token(db, candidate)
+            db.commit()
+        except Exception:
+            db.rollback()
+            raise
+
+        background_tasks.add_task(
+            send_login_email,
+            candidate.email,
+            raw_token,
+        )
+
+    return {
+        "message": (
+            "If this email belongs to a verified account, "
+            "a login message will be sent."
+        )
+    }
+
+@app.post("/auth/complete-login")
+def complete_candidate_login(
+    login_data: CompleteLoginRequest,
+    response: Response,
+    db: Session = Depends(get_db),
+):
+    try:
+        candidate = consume_login_token(
+            db,
+            login_data.token,
+        )
+
+        if candidate is None:
+            db.rollback()
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid or expired login token",
+            )
+
+        raw_session_token = create_candidate_session(
+            db,
+            candidate.id,
+        )
+
+        # Consume the login token and create the session
+        # in the same database transaction.
+        db.commit()
+
+    except HTTPException:
+        raise
+
+    except Exception:
+        db.rollback()
+        raise
+
+    set_session_cookie(response, raw_session_token)
+
+    return {
+        "message": "Login successful",
+    }
