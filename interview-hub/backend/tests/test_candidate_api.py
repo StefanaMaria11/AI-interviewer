@@ -7,6 +7,7 @@ from sqlalchemy.exc import IntegrityError
 
 from app.main import app
 from app.database import get_db
+from app.services.email_verification_service import hash_token
 
 
 @pytest.fixture
@@ -24,16 +25,17 @@ def client_with_db():
 def test_register_candidate_success(client_with_db):
     client, db = client_with_db
 
-    response = client.post(
-        "/candidates",
-        json={
-            "full_name": "Elena Popescu",
-            "email": "Elena.Popescu@Example.com",
-            "age": 24,
-            "profession": "Software Engineer",
-            "location": "Cluj-Napoca"
-        }
-    )
+    with patch("app.main.send_verification_email") as send_email:
+        response = client.post(
+            "/candidates",
+            json={
+                "full_name": "Elena Popescu",
+                "email": "Elena.Popescu@Example.com",
+                "age": 24,
+                "profession": "Software Engineer",
+                "location": "Cluj-Napoca"
+            }
+        )
 
     assert response.status_code == 201
 
@@ -49,6 +51,13 @@ def test_register_candidate_success(client_with_db):
     assert len(saved_token.token_hash) == 64
     assert "token" not in data
     assert saved_candidate.email == "elena.popescu@example.com"
+
+    send_email.assert_called_once()
+
+    recipient, raw_token = send_email.call_args.args
+
+    assert recipient == "elena.popescu@example.com"
+    assert hash_token(raw_token) == saved_token.token_hash
 
     db.commit.assert_called_once()
 

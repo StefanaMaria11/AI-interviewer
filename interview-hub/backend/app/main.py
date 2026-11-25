@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, BackgroundTasks
 from uuid import uuid4
 
 from sqlalchemy import text
@@ -10,6 +10,7 @@ from app.models.candidate import Candidate
 from app.schemas.candidate import CandidateCreate
 from app.schemas.email_verification import VerifyEmailRequest
 from app.services.email_verification_service import create_verification_token, verify_email_token
+from app.services.email_service import send_verification_email
 
 
 app = FastAPI(
@@ -26,9 +27,7 @@ def health_check():
     }
 
 @app.get("/health/database")
-def database_health(
-    db: Session = Depends(get_db)
-):
+def database_health(db: Session = Depends(get_db)):
     db.execute(text("SELECT 1"))
 
     return {
@@ -36,11 +35,9 @@ def database_health(
         "database": "connected"
     }
 
+
 @app.post("/candidates", status_code=201)
-def register_candidate(
-    candidate_data: CandidateCreate,
-    db: Session = Depends(get_db)
-):
+def register_candidate(candidate_data: CandidateCreate, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     candidate = Candidate(
         id=uuid4(),
         **candidate_data.model_dump()
@@ -49,8 +46,11 @@ def register_candidate(
     db.add(candidate)
 
     try:
-        # Store a verification token in the same transaction.
-        create_verification_token(db, candidate.id)
+        raw_token = create_verification_token(
+            db,
+            candidate.id
+        )
+
         db.commit()
 
     except IntegrityError:
@@ -63,6 +63,12 @@ def register_candidate(
 
     db.refresh(candidate)
 
+    background_tasks.add_task(
+        send_verification_email,
+        candidate.email,
+        raw_token
+    )
+
     return {
         "candidate_id": str(candidate.id),
         "message": "Candidate registered successfully",
@@ -70,10 +76,7 @@ def register_candidate(
     }
 
 @app.post("/auth/verify-email")
-def verify_candidate_email(
-    verification_data: VerifyEmailRequest,
-    db: Session = Depends(get_db)
-):
+def verify_candidate_email(verification_data: VerifyEmailRequest, db: Session = Depends(get_db)):
     try:
         verified = verify_email_token(
             db,
