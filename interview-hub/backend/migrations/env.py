@@ -4,7 +4,7 @@ from logging.config import fileConfig
 from alembic import context
 
 from app.database import Base, engine
-from app.models import candidate
+from app.models import candidate, email_verification
 
 config = context.config
 
