@@ -19,24 +19,52 @@ These are **planned workflows**, not yet available end to end.
 
 ## Implementation Status
 
+The project is under active development. Core AI Interviewer functionality is implemented, while InterviewHub is being developed incrementally on the `feature/interview-hub-setup` branch.
+
+**Status legend:** ✅ Implemented · 🚧 In Progress · 📋 Planned
+
 | Area | Status | Notes |
-| --- | --- | --- |
-| Stage-based AI interview | ✅ Implemented | Background, Motivation, Experience, Technical Foundation, and Problem Solving |
-| Local LLM integration | ✅ Implemented | Ollama with `gemma3:1b` in the current Docker configuration |
-| Interview transcript persistence | ✅ Implemented | UUID-based interviews stored as local JSON files by the AI engine |
-| Interview summary generation | ✅ Implemented | Generated after the interview; quality continues to be refined |
-| Structured strengths and improvements | ✅ Implemented | Pydantic-validated AI output |
-| Answer-reference evidence | ✅ Implemented | The model returns answer IDs; Python resolves them to original answers |
-| InterviewHub FastAPI backend | ✅ Implemented | Separate API under `interview-hub/backend/` |
-| PostgreSQL + SQLAlchemy | ✅ Implemented | Local development database and session dependency |
-| Alembic migrations | ✅ Implemented | Initial `candidates` table migration |
-| Candidate registration API | ✅ Implemented | Validated input, normalized emails, database uniqueness, duplicate handling |
-| Email verification | 🚧 In progress | Token model being developed; no verification flow yet |
-| Candidate frontend and admin dashboard | 📋 Planned | One unified portal with role-specific views |
-| Authentication and authorization | 📋 Planned | Admin login and passwordless candidate verification |
-| Single-attempt interviews and refresh recovery | 📋 Planned | Enforced server-side, with authenticated session recovery |
-| AI engine ↔ InterviewHub integration | 📋 Planned | Secure internal API communication |
-| Role-specific evaluation assistance | 📋 Planned | Evidence-based observations for human reviewers; no automatic hiring decisions |
+|---|---|---|
+| **AI Interview Engine** | | |
+| Stage-based AI interviews | ✅ Implemented | Background, Motivation, Experience, Technical Foundation, and Problem Solving |
+| Local LLM integration | ✅ Implemented | Ollama with `gemma3:1b` |
+| Interview transcript persistence | ✅ Implemented | UUID-based interviews stored in local JSON files |
+| AI-generated summaries | ✅ Implemented | Summaries generated after interview completion |
+| Structured interview feedback | ✅ Implemented | Pydantic-validated strengths, improvements, and overall feedback |
+| Evidence-based feedback | ✅ Implemented | Answer references validated and resolved to original candidate responses |
+| Feedback quality improvements | 🚧 In Progress | Improving consistency, relevance, and accuracy across interview stages |
+| **InterviewHub Foundation** | | |
+| InterviewHub FastAPI backend | ✅ Implemented | Independent backend under `interview-hub/backend/` |
+| PostgreSQL and SQLAlchemy | ✅ Implemented | Database configuration, ORM models, and session management |
+| Alembic migrations | ✅ Implemented | Version-controlled database schema with the initial Candidates table |
+| Candidate registration API | ✅ Implemented | Input validation, email normalization, uniqueness constraints, and duplicate handling |
+| Automated registration tests | ✅ Implemented | Schema and API tests |
+| Email verification | 🚧 In Progress | Token model created; verification workflow and email delivery pending |
+| **Authentication and Interview Security** | | |
+| Administrator authentication | 📋 Planned | Secure login, password hashing, MFA, and session management |
+| Candidate passwordless authentication | 📋 Planned | Single-use verification links and secure candidate sessions |
+| Role-based access control | 📋 Planned | Protected endpoints and administrator-only access to evaluations |
+| Bot and abuse prevention | 📋 Planned | Cloudflare Turnstile, rate limiting, and registration abuse protection |
+| Interview attempt enforcement | 📋 Planned | One interview attempt per verified candidate, enforced server-side |
+| Interview session recovery | 📋 Planned | Restore interrupted sessions without creating additional attempts |
+| **Unified Recruitment Platform** | | |
+| React and TypeScript frontend | 📋 Planned | Responsive application with separate candidate and administrator interfaces |
+| AI Interviewer integration | 📋 Planned | Secure communication between InterviewHub and the AI engine |
+| Candidate management dashboard | 📋 Planned | Candidate records, interview progress, transcripts, and results |
+| Interview monitoring and administration | 📋 Planned | Interview status tracking and administrative review tools |
+| **AI Evaluation and Responsible Recruitment** | | |
+| Role-specific evaluation criteria | 📋 Planned | Assessments grounded in job requirements and interview evidence |
+| AI-assisted candidate review | 📋 Planned | Explainable observations to support human recruitment decisions |
+| Prompt injection protection | 📋 Planned | Additional safeguards, input isolation, and output validation |
+| Evaluation consistency and fairness | 📋 Planned | Bias testing, reliability checks, and human oversight |
+| **Production Readiness** | | |
+| Security hardening | 📋 Planned | HTTPS, encryption, CSRF protection, security headers, and secrets management |
+| Audit logging and monitoring | 📋 Planned | Authentication events, administrative activity, and system monitoring |
+| Privacy and data management | 📋 Planned | GDPR-aligned safeguards, data retention, deletion, and access policies |
+| Automated security testing | 📋 Planned | Vulnerability scanning, dependency checks, and security testing |
+| CI/CD and deployment | 📋 Planned | Automated workflows, production deployment, and backup and recovery mechanisms |
+
+> **Development note:** InterviewHub features are currently available only on `feature/interview-hub-setup` until integrated into `main`. The application remains a development prototype and is not yet suitable for processing real recruitment applications or making employment decisions.
 
 ## Why This Project?
 
@@ -265,10 +293,6 @@ python -m pytest -q
 ```
 
 The InterviewHub API tests mock the database session; they do not replace a full PostgreSQL integration-test suite.
-
-## Development Roadmap
-
-The project is being developed incrementally, evolving from a standalone AI interviewer into a complete AI-powered recruitment platform.
 
 ## Development Roadmap
 
