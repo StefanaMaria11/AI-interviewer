@@ -59,7 +59,7 @@ def test_verify_valid_token():
 
     result = verify_email_token(db, "test-secret")
 
-    assert result is True
+    assert result is candidate
     assert verification.used_at is not None
     assert candidate.email_verified_at is not None
     assert verification.used_at == candidate.email_verified_at
@@ -69,7 +69,7 @@ def test_reject_unknown_token():
     db = MagicMock()
     db.scalar.return_value = None
 
-    assert verify_email_token(db, "unknown-token") is False
+    assert verify_email_token(db, "unknown-token") is None
 
 def test_reject_expired_token():
     db = MagicMock()
@@ -80,7 +80,7 @@ def test_reject_expired_token():
 
     db.scalar.return_value = verification
 
-    assert verify_email_token(db, "test-secret") is False
+    assert verify_email_token(db, "test-secret") is None
     assert verification.used_at is None
     db.scalar.assert_called_once()
 
@@ -93,7 +93,7 @@ def test_reject_used_token():
 
     db.scalar.return_value = verification
 
-    assert verify_email_token(db, "test-secret") is False
+    assert verify_email_token(db, "test-secret") is None
 
 def test_reject_already_verified_candidate():
     db = MagicMock()
@@ -103,5 +103,5 @@ def test_reject_already_verified_candidate():
 
     db.scalar.side_effect = [verification, candidate]
 
-    assert verify_email_token(db, "test-secret") is False
+    assert verify_email_token(db, "test-secret") is None
     assert verification.used_at is None

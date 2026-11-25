@@ -108,9 +108,11 @@ def test_register_invalid_email(client_with_db):
 def test_verify_email_success(client_with_db):
     client, db = client_with_db
 
+    candidate = MagicMock(id=uuid4())
+
     with patch(
         "app.main.verify_email_token",
-        return_value=True
+        return_value=candidate
     ) as verifier:
         response = client.post(
             "/auth/verify-email",
@@ -131,7 +133,7 @@ def test_verify_email_invalid_token(client_with_db):
 
     with patch(
         "app.main.verify_email_token",
-        return_value=False
+        return_value=None
     ):
         response = client.post(
             "/auth/verify-email",
@@ -162,10 +164,12 @@ def test_verify_email_empty_token(client_with_db):
 def test_verify_email_commit_failure(client_with_db):
     client, db = client_with_db
     db.commit.side_effect = RuntimeError("Database failure")
+    
+    candidate = MagicMock(id=uuid4())
 
     with patch(
         "app.main.verify_email_token",
-        return_value=True
+        return_value=candidate
     ):
         with pytest.raises(RuntimeError, match="Database failure"):
             client.post(

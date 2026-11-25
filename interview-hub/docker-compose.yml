@@ -26,9 +26,6 @@ services:
     container_name: interview-hub-mailpit
     restart: unless-stopped
 
-    environment:
-      MP_UI_AUTH: ${MAILPIT_UI_AUTH}
-
     ports:
       - "127.0.0.1:1025:1025"
       - "127.0.0.1:8025:8025"

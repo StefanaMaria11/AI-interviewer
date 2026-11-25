@@ -36,9 +36,9 @@ def create_verification_token(
     # The caller commits the transaction.
     return raw_token
 
-def verify_email_token(db: Session, raw_token: str) -> bool:
+def verify_email_token(db: Session, raw_token: str) -> Candidate | None:
     if not raw_token:
-        return False
+        return None
 
     token_hash = hash_token(raw_token)
     now = datetime.now(timezone.utc)
@@ -50,13 +50,13 @@ def verify_email_token(db: Session, raw_token: str) -> bool:
     )
 
     if verification is None:
-        return False
+        return None
 
     if verification.used_at is not None:
-        return False
+        return None
 
     if verification.expires_at <= now:
-        return False
+        return None
 
     candidate = db.scalar(
         select(Candidate)
@@ -65,10 +65,10 @@ def verify_email_token(db: Session, raw_token: str) -> bool:
     )
 
     if candidate is None or candidate.email_verified_at is not None:
-        return False
+        return None
 
     verification.used_at = now
     candidate.email_verified_at = now
 
     # The caller commits both updates in one transaction.
-    return True
+    return candidate
