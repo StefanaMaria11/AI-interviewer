@@ -3,7 +3,7 @@ from logging.config import fileConfig
 from alembic import context
 
 from app.database import Base, engine
-from app.models import candidate, email_verification, candidate_session, candidate_login_token
+from app.models import candidate, email_verification, candidate_session, candidate_login_token, admin, admin_session
 
 config = context.config
 

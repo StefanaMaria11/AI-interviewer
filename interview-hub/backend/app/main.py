@@ -1,5 +1,7 @@
 import os
 
+from datetime import datetime, timezone
+
 from fastapi import FastAPI, Depends, HTTPException, BackgroundTasks, Request, Response
 from uuid import uuid4
 
@@ -9,13 +11,18 @@ from sqlalchemy.exc import IntegrityError
 
 from app.database import get_db
 from app.models.candidate import Candidate
+from app.models.admin import Admin
 from app.schemas.candidate import CandidateCreate
+from app.schemas.admin_auth import AdminLoginRequest
 from app.schemas.email_verification import VerifyEmailRequest
 from app.schemas.login import LoginRequest, CompleteLoginRequest
 from app.services.email_verification_service import create_verification_token, verify_email_token
 from app.services.email_service import send_verification_email, send_login_email
 from app.services.session_service import create_candidate_session, get_authenticated_candidate, revoke_candidate_session
 from app.services.login_service import create_login_token, consume_login_token
+from app.services.admin_password_service import verify_admin_password
+from app.services.admin_mfa_service import verify_admin_totp
+from app.services.admin_session_service import create_admin_session, get_authenticated_admin, revoke_admin_session
 
 
 app = FastAPI(
@@ -26,6 +33,8 @@ app = FastAPI(
 
 SESSION_COOKIE_NAME = "interviewhub_session"
 SESSION_MAX_AGE = 12 * 60 * 60
+ADMIN_SESSION_COOKIE_NAME = "interviewhub_admin_session"
+ADMIN_SESSION_MAX_AGE = 2 * 60 * 60
 
 def session_cookie_secure() -> bool:
     # Secure by default. Allow HTTP only when explicitly
@@ -66,6 +75,34 @@ def require_candidate(
 
     return candidate
 
+def set_admin_session_cookie(
+    response: Response,
+    token: str,
+) -> None:
+    response.set_cookie(
+        key=ADMIN_SESSION_COOKIE_NAME,
+        value=token,
+        max_age=ADMIN_SESSION_MAX_AGE,
+        httponly=True,
+        secure=session_cookie_secure(),
+        samesite="strict",
+        path="/admin",
+    )
+
+def require_admin(
+    request: Request,
+    db: Session = Depends(get_db),
+) -> Admin:
+    token = request.cookies.get(ADMIN_SESSION_COOKIE_NAME)
+    admin = get_authenticated_admin(db, token)
+
+    if admin is None:
+        raise HTTPException(
+            status_code=401,
+            detail="Administrator authentication required",
+        )
+
+    return admin
 
 @app.get("/health")
 def health_check():
@@ -281,3 +318,97 @@ def complete_candidate_login(
     return {
         "message": "Login successful",
     }
+
+@app.post("/admin/auth/login")
+def login_admin(
+    login_data: AdminLoginRequest,
+    response: Response,
+    db: Session = Depends(get_db),
+):
+    try:
+        admin = db.scalar(
+            select(Admin)
+            .where(Admin.email == login_data.email)
+            .with_for_update()
+        )
+
+        if (
+            admin is None
+            or not admin.is_active
+            or admin.mfa_enabled_at is None
+            or admin.totp_secret_encrypted is None
+            or not verify_admin_password(
+                login_data.password,
+                admin.password_hash,
+            )
+            or not verify_admin_totp(
+                admin,
+                login_data.totp_code,
+            )
+        ):
+            raise HTTPException(
+                status_code=401,
+                detail="Invalid administrator credentials",
+            )
+
+        verified_at = datetime.now(timezone.utc)
+
+        raw_session_token = create_admin_session(
+            db,
+            admin.id,
+            mfa_verified_at=verified_at,
+        )
+
+        admin.last_login_at = verified_at
+
+        db.commit()
+
+    except Exception:
+        db.rollback()
+        raise
+
+    set_admin_session_cookie(response, raw_session_token)
+
+    return {"message": "Administrator login successful"}
+
+@app.get("/admin/auth/me")
+def get_my_admin_profile(
+    admin: Admin = Depends(require_admin),
+):
+    return {
+        "admin_id": str(admin.id),
+        "email": admin.email,
+        "is_active": admin.is_active,
+        "mfa_enabled": admin.mfa_enabled_at is not None,
+        "last_login_at": admin.last_login_at,
+    }
+
+@app.post("/admin/auth/logout")
+def logout_admin(
+    request: Request,
+    response: Response,
+    db: Session = Depends(get_db),
+):
+    token = request.cookies.get(ADMIN_SESSION_COOKIE_NAME)
+
+    try:
+        revoked = revoke_admin_session(db, token)
+
+        if revoked:
+            db.commit()
+        else:
+            db.rollback()
+
+    except Exception:
+        db.rollback()
+        raise
+
+    response.delete_cookie(
+        key=ADMIN_SESSION_COOKIE_NAME,
+        path="/admin",
+        secure=session_cookie_secure(),
+        httponly=True,
+        samesite="strict",
+    )
+
+    return {"message": "Administrator logged out successfully"}
