@@ -1,325 +1,349 @@
-# AI Interviewer
-
-A lightweight AI-powered interview application built with FastAPI, a simple web interface, and a locally running LLM.
-
-The project was created as a solution for the "Mini AI Interviewer" assignment. The goal was to build an application that can conduct short AI-powered interviews on a selected topic, collect user answers, and generate a final summary based on the conversation.
-
-The application focuses on creating a structured interview experience where the AI acts as an interviewer while keeping a predictable flow and clear separation between the AI logic and the application logic.
-
-## Project Overview
-
-The application allows users to:
-
-- start an interview session
-- answer AI-generated questions interactively through the UI
-- follow a structured interview flow
-- receive an AI-generated summary at the end
-- store the complete interview transcript and analysis
-
-The interview topic and structure are defined by the application configuration. The user does not need to provide a topic; instead, the AI interviewer is guided by predefined instructions and interview stages.
-
-The project uses a local LLM through Ollama instead of relying on an external API. This decision was made to experiment with running AI applications in a more controlled environment and to avoid sending user data to external services.
-
-# Motivation and Project Idea
-
-Instead of choosing one of the example topics provided in the assignment, I decided to build a more realistic use case: an AI interviewer for a job interview scenario.
-
-The reason behind this decision was that I wanted to work on a project that could represent a real-world application rather than only a technical demonstration. I was also inspired by the interview approaches used by some companies, such as AI-based preliminary interviews, where candidates can interact with an automated system before reaching the next recruitment stage.
-
-Personally, I still believe that human interaction is an important part of the interview process, especially for understanding communication skills and personality. However, when a company receives a large number of applications, an AI interviewer could become a useful tool for an initial screening stage by helping recruiters identify relevant candidates faster.
-
-Another reason for choosing this idea was that I prefer building projects that feel realistic and can be continuously improved. Instead of creating a one-time prototype, I wanted to design a foundation that could evolve with additional features, such as different interview types, improved candidate analysis, better evaluation methods, or integration into a larger recruitment workflow.
-
-## Structured Interview Flow
-
-One of the main decisions in this project was choosing to run the LLM locally instead of using a cloud-based provider.
-
-My first option was to use a hosted model such as OpenAI models, because they generally provide better reasoning capabilities and more consistent responses. However, this approach requires API costs and depends on an external service.
-
-Since I wanted to experiment with a fully local AI application, I decided to use Ollama instead. Another important constraint was the available hardware. The project was developed on an older laptop with limited computational resources, which made running larger state-of-the-art open-source models impractical.
-
-Because of this limitation, I selected a smaller pretrained model that could run locally while still being able to handle the requirements of this project. The chosen model provides a good balance between response quality and resource consumption, although larger models would likely provide better interview questions and more detailed summaries.
-
-Alternatively, for a production system where infrastructure and budget allow it, I would consider using hosted models through providers such as OpenAI, Anthropic, or other enterprise LLM providers, because they offer stronger reasoning capabilities, better reliability, and easier scalability.
-
-The current implementation was therefore a compromise between AI quality, hardware limitations, cost, and the goal to complete the task.
-
-# Architecture
-
-The application was designed with a simple layered architecture, separating the user interface, backend logic, AI interaction, and data persistence.
-
-The main components are:
-
-- Frontend: responsible for user interaction and displaying the interview flow
-- Backend API: manages the application logic and communication between components
-- Interview Service: controls the interview state and question generation process
-- LLM Service: handles communication with the local language model
-- Storage Service: persists interview transcripts and generated summaries
-
-The different components are containerized using Docker and connected through Docker Compose. Each service runs in its own isolated environment, while Docker Compose manages the communication between containers and simplifies the setup process.
-
-The current architecture consists of three main containers:
-
-- Frontend container: serves the web interface
-- Backend container: runs the FastAPI application and handles the interview logic
-- Ollama container: provides the locally running LLM service
-
-## Application Flow
-
-1. User starts interview
-        |
-2. Backend initializes interview session
-        |
-3. Current interview stage is identified
-        |
-4. LLM generates the next question
-        |
-5. User provides answer
-        |
-6. Answer is stored
-        |
-7. Process repeats until all stages are completed
-        |
-8. LLM generates final summary
-        |
-9. Transcript and summary are saved
-
-# Project Structure
-
-The project is organized into separate components to keep the application logic, AI interaction, and user interface independent.
-
-
-Main responsibilities:
-
-- `main.py` - serves as the entry point of the FastAPI application. It initializes the API, defines the available endpoints, and connects the different services together.
-- `models/` - contains the data models used by the application
-- `interviewer_service.py` - manages the interview stages and interaction logic
-- `llm_service.py` - handles communication with the local LLM through Ollama
-- `storage_service.py` - manages saving and loading interview data
-- `prompts/` - stores the prompts used for question generation and summarization
-- `frontend/` - provides the user interface
-- `docker-compose.yml` - defines and connects the application services
-
-# AI Integration and Prompt Design
-
-The AI component is the core of this application, as the goal was not only to generate questions, but to create a structured interview experience where the LLM behaves as an interviewer.
-
-The interaction with the LLM is handled through a dedicated `LLMService`, while the prompt creation logic is separated from the application logic. This allows the AI behavior to be improved independently without modifying the interview workflow.
-
----
-
-## Prompt Design
-
-One of the main challenges was controlling the behavior of a general-purpose LLM. Without clear instructions, the model could generate unrelated questions, skip interview topics, repeat information, or change the difficulty level unpredictably.
-
-To address this, I designed a layered prompt structure consisting of:
-
-- interviewer role definition
-- global interview rules
-- current interview stage instructions
-- previous conversation context
-
-The final prompt sent to the LLM contains:
- - Interviewer Role
- - Question Generation Rules
- - Current Interview Stage
- - Stage-specific Instructions
- - Previous Conversation
-
- 
-This approach gives the model enough context to generate adaptive questions while still keeping the interview controlled.
-
-## Structured Stage-Based Prompting
-
-Instead of allowing the LLM to freely decide the interview direction, each question belongs to a predefined stage:
-1. BACKGROUND
-2. MOTIVATION
-3. EXPERIENCE
-4. TECHNICAL FOUNDATION
-5. PROBLEM SOLVING
-6. SUMMARY
-
-Each stage contains specific instructions about:
-
-- what information should be collected
-- what topics should be explored
-- what topics should be avoided
-- examples of good and bad questions
-
-For example, during the technical foundation stage, the system first checks previous experience answers. If the candidate already mentioned an AI-related project, the model is instructed to ask about that specific experience instead of introducing unrelated theoretical questions.
-
-This creates a more realistic interview experience because the conversation builds on the candidate's previous answers.
-
-## Controlling LLM Output
-
-The prompts include explicit constraints to improve consistency:
-
-- generate exactly one question
-- focus only on the current stage
-- avoid combining multiple questions
-- avoid greetings or additional explanations
-- do not repeat information already provided
-
-These constraints reduce unpredictable outputs and make the AI behavior easier to evaluate.
-
-## Conversation Context Management
-
-The application does not send only the latest answer to the LLM. Instead, the previous interview conversation is reconstructed and included as context.
-
-This allows the model to:
-
-- avoid repeating questions
-- ask relevant follow-ups
-- connect new questions with previous answers
-- adapt based on the candidate's experience level
-
-## Interview Summary Generation
-
-After all interview stages are completed, the same LLM-based approach is used to generate a final candidate summary.
-
-The summary prompt is designed to keep the evaluation objective by:
-
-- using only information explicitly mentioned by the candidate
-- avoiding exaggerated descriptions
-- avoiding assumptions about skills or experience
-- preventing the model from making hiring decisions
-
-The generated summary focuses on:
-
-- background
-- motivation
-- technical experience
-- problem-solving approach
-- overall suitability for an AI Engineering Intern role
-
-
-## Additional Analysis
-
-Besides the LLM-generated summary, the application performs lightweight analysis of the candidate's answers.
-
-The analysis includes:
-
-### Keyword Extraction
-
-A simple keyword extraction mechanism identifies relevant concepts mentioned by the candidate.
-
-Technical terms receive a higher score to prioritize keywords related to software engineering and AI topics.
-
-### Sentiment Analysis
-
-A rule-based sentiment analysis is also performed to identify the general tone of the candidate's answers.
-
-The result can be:
-
-- positive
-- negative
-
-This is intentionally kept simple because the main purpose of the project was the AI interviewer workflow rather than building a complete NLP evaluation system.
-
-# Running the Application
-
-The application is fully containerized using Docker Compose, which manages the frontend, backend, and local LLM services.
-
-## Prerequisites
-
-Before running the application, make sure you have:
-
-- Docker installed
-- Docker Compose installed
-- enough resources available for running the local LLM
-
-The project was developed and tested on a local machine using Docker Desktop.
-
----
-
-## Starting the Application
-
-After extracting the project archive, navigate to the project root folder:
-
-```bash
-cd ai-interviewer
-```
-- Start all services using:
-
-```bash
-docker compose up --build
-```
- - In another terminal:
-
-```bash
- docker exec -it ollama
+# AI Interviewer · InterviewHub
+
+**An evolving AI-powered interview and recruitment platform built with FastAPI, local LLMs, and PostgreSQL.**
+
+AI Interviewer began as a *Mini AI Interviewer* assignment: a small application that asks interview questions and summarizes the responses. It has since grown into a stage-based interview engine with structured, evidence-linked feedback. The next phase, **InterviewHub**, adds the candidate and administrator workflows needed to make those capabilities part of one cohesive recruitment application.
+
+> **Development status:** Active development / local prototype. The AI interview engine is functional. InterviewHub's backend foundation and candidate registration API are implemented, but its frontend, email verification, authentication, and integration with the AI engine are not complete. **Do not use this version to process real applicants or make hiring decisions.**
+
+## Vision
+
+The aim is to provide a consistent, accessible interview experience for candidates while helping recruiters review structured, job-relevant information. AI can assist with questions, summaries, and evidence-based observations; **human reviewers remain responsible for interpreting results and making recruitment decisions**.
+
+The finished application is intended to support two user experiences:
+
+- **Candidates:** Register, verify their email without creating a password, complete one interview attempt, and see a submission confirmation.
+- **Administrators:** Sign in securely, review applicants and interview transcripts, view summaries and feedback, and carry out human-led assessments.
+
+These are **planned workflows**, not yet available end to end.
+
+## Implementation Status
+
+The project is under active development. Core AI Interviewer functionality is implemented, while InterviewHub is being developed incrementally on the `feature/interview-hub-setup` branch.
+
+**Status legend:** ✅ Implemented · 🚧 In Progress · 📋 Planned
+
+| Area | Status | Notes |
+|---|---|---|
+| **AI Interview Engine** | | |
+| Stage-based AI interviews | ✅ Implemented | Background, Motivation, Experience, Technical Foundation, and Problem Solving |
+| Local LLM integration | ✅ Implemented | Ollama with `gemma3:1b` |
+| Interview transcript persistence | ✅ Implemented | UUID-based interviews stored in local JSON files |
+| AI-generated summaries | ✅ Implemented | Summaries generated after interview completion |
+| Structured interview feedback | ✅ Implemented | Pydantic-validated strengths, improvements, and overall feedback |
+| Evidence-based feedback | ✅ Implemented | Answer references validated and resolved to original candidate responses |
+| Feedback quality improvements | 🚧 In Progress | Improving consistency, relevance, and accuracy across interview stages |
+| **InterviewHub Foundation** | | |
+| InterviewHub FastAPI backend | ✅ Implemented | Independent backend under `interview-hub/backend/` |
+| PostgreSQL and SQLAlchemy | ✅ Implemented | Database configuration, ORM models, and session management |
+| Alembic migrations | ✅ Implemented | Version-controlled database schema with the initial Candidates table |
+| Candidate registration API | ✅ Implemented | Input validation, email normalization, uniqueness constraints, and duplicate handling |
+| Automated registration tests | ✅ Implemented | Schema and API tests |
+| Email verification | 🚧 In Progress | Token model created; verification workflow and email delivery pending |
+| **Authentication and Interview Security** | | |
+| Administrator authentication | 📋 Planned | Secure login, password hashing, MFA, and session management |
+| Candidate passwordless authentication | 📋 Planned | Single-use verification links and secure candidate sessions |
+| Role-based access control | 📋 Planned | Protected endpoints and administrator-only access to evaluations |
+| Bot and abuse prevention | 📋 Planned | Cloudflare Turnstile, rate limiting, and registration abuse protection |
+| Interview attempt enforcement | 📋 Planned | One interview attempt per verified candidate, enforced server-side |
+| Interview session recovery | 📋 Planned | Restore interrupted sessions without creating additional attempts |
+| **Unified Recruitment Platform** | | |
+| React and TypeScript frontend | 📋 Planned | Responsive application with separate candidate and administrator interfaces |
+| AI Interviewer integration | 📋 Planned | Secure communication between InterviewHub and the AI engine |
+| Candidate management dashboard | 📋 Planned | Candidate records, interview progress, transcripts, and results |
+| Interview monitoring and administration | 📋 Planned | Interview status tracking and administrative review tools |
+| **AI Evaluation and Responsible Recruitment** | | |
+| Role-specific evaluation criteria | 📋 Planned | Assessments grounded in job requirements and interview evidence |
+| AI-assisted candidate review | 📋 Planned | Explainable observations to support human recruitment decisions |
+| Prompt injection protection | 📋 Planned | Additional safeguards, input isolation, and output validation |
+| Evaluation consistency and fairness | 📋 Planned | Bias testing, reliability checks, and human oversight |
+| **Production Readiness** | | |
+| Security hardening | 📋 Planned | HTTPS, encryption, CSRF protection, security headers, and secrets management |
+| Audit logging and monitoring | 📋 Planned | Authentication events, administrative activity, and system monitoring |
+| Privacy and data management | 📋 Planned | GDPR-aligned safeguards, data retention, deletion, and access policies |
+| Automated security testing | 📋 Planned | Vulnerability scanning, dependency checks, and security testing |
+| CI/CD and deployment | 📋 Planned | Automated workflows, production deployment, and backup and recovery mechanisms |
+
+> **Development note:** InterviewHub features are currently available only on `feature/interview-hub-setup` until integrated into `main`. The application remains a development prototype and is not yet suitable for processing real recruitment applications or making employment decisions.
+
+## Why This Project?
+
+The original assignment was an opportunity to experiment with practical LLM application development instead of a purely conversational demo. I chose a job-interview scenario because it requires more than text generation: the system must track state, preserve context, manage data, validate model output, and expose useful results through an interface.
+
+Running a model locally through Ollama also provides an environment for experimenting without paying per API request. This has practical trade-offs: smaller local models can be less consistent, particularly when generating evaluative feedback. Those limitations have directly informed the application's design, testing, and validation strategies.
+
+InterviewHub extends that work into a full-stack project, with candidate registration, a relational database, authentication, authorization, and eventually an administrative review workflow.
+
+## Architecture
+
+The codebase is a **monorepo** containing two application components being developed toward a single product:
+
+```text
+AI-interviewer/
+├── backend/                    # Existing AI interview engine (FastAPI)
+│   ├── models/                 # Interview and feedback schemas
+│   ├── prompts/                # Stage, summary, and feedback prompts
+│   ├── services/               # Interview, LLM, analysis, and storage logic
+│   └── main.py                 # AI engine API
+├── frontend/                   # Current standalone interview interface
+├── tests/                      # AI engine tests
+├── interview-hub/
+│   ├── backend/
+│   │   ├── app/
+│   │   │   ├── models/         # SQLAlchemy models
+│   │   │   ├── schemas/        # Pydantic request validation
+│   │   │   ├── database.py     # Database engine and session dependency
+│   │   │   └── main.py         # InterviewHub API
+│   │   ├── migrations/         # Alembic schema history
+│   │   ├── tests/              # InterviewHub backend tests
+│   │   └── requirements.txt
+│   ├── frontend/               # Planned candidate/admin portal
+│   └── docker-compose.yml     # Development PostgreSQL container
+├── docker-compose.yml         # AI engine, current frontend, Ollama
+└── README.md
 ```
 
-```bash
-ollama pull gemma3:1b
-```
-- In your browser type the following for testing: http://localhost:5000
+**Current local setup**
 
-- To stop all running containers:
+```text
+Standalone interview UI (:5000)
+           │
+           ▼
+AI Interviewer FastAPI (:8000) ──► Ollama (local model)
+           │
+           ▼
+   JSON interview records
+
+InterviewHub FastAPI (:8001) ──► PostgreSQL (localhost:5433)
+       Candidate registration
+```
+
+**Target integration (planned)**
+
+```text
+       Unified InterviewHub web portal
+          /                    \
+    Candidate views         Admin views
+          \                    /
+           ▼                  ▼
+         InterviewHub platform API
+         ├── Authentication & permissions
+         ├── Candidate / attempt management
+         ├── PostgreSQL
+         └── Protected requests to AI Interviewer
+                                  └── Ollama
+```
+
+The platform API should act as the authorized gateway to interview content. The AI engine's transcript, summary, and feedback endpoints are **not yet access-controlled** and must not be publicly exposed in the current form.
+
+## AI Interview Engine
+
+### Interview workflow
+
+The engine follows predefined stages rather than allowing the model to control the overall process:
+
+1. **Background** — education and professional situation.
+2. **Motivation** — interest in the position and field.
+3. **Experience** — practical work and projects.
+4. **Technical Foundation** — relevant technical reasoning.
+5. **Problem Solving** — approach to diagnosing and resolving challenges.
+6. **Summary** — generation of the interview report, followed by completion.
+
+Prompts specify interviewer behavior, question rules, stage instructions, and earlier conversation context. The service tracks stage transitions and stores questions and answers under a UUID. The API rejects answers submitted after the interview has finished.
+
+### Structured feedback and evidence
+
+The feedback pipeline separates AI generation from application-side validation:
+
+1. Candidate answers are numbered in the feedback prompt.
+2. Ollama returns structured observations with an `answer_id` for each point.
+3. Pydantic validates the response shape.
+4. Python checks that referenced answer IDs exist and resolves them to the original answer text.
+5. Validated feedback is cached with the interview record.
+
+This design prevents fabricated **evidence quotations** caused by the model copying or reformatting candidate text. It **does not prove** an observation is logically supported by the cited answer; that remains an evaluation-quality challenge.
+
+Prompt rules also encourage cross-answer consistency, constructive suggestions, and avoiding unsupported conclusions. Model limitations can still produce generic, repetitive, or contradictory feedback.
+
+### Additional analysis
+
+The engine also stores lightweight keyword extraction and rule-based sentiment analysis. These are experimental supporting signals, **not reliable measures of personality or applicant suitability**, and should not determine hiring outcomes.
+
+## InterviewHub Backend
+
+The InterviewHub service currently provides:
+
+- Candidate registration with Pydantic validation.
+- Email normalization and a unique-email database constraint.
+- PostgreSQL persistence through SQLAlchemy.
+- Database migrations managed by Alembic.
+- API and database health checks.
+- Automated schema and registration endpoint tests.
+
+**Current development API**
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `GET` | `/health` | Service health |
+| `GET` | `/health/database` | Database connectivity |
+| `POST` | `/candidates` | Register a candidate; does **not** verify their email or authorize an interview |
+
+The registration endpoint currently returns a candidate ID and an unverified status. It is **development-only** until email verification, rate limiting, and access controls are implemented.
+
+### Database development
+
+PostgreSQL runs in a Docker container. SQLAlchemy defines models and manages sessions; Alembic versions schema changes so they can be reviewed and applied consistently.
+
+The committed schema currently includes a `candidates` table. A separate email-verification-token model is being developed; its migration and verification workflow are not yet complete.
+
+The prototype registration schema currently includes a declared age field. Before using real candidate data, its necessity should be reviewed under data-minimization principles. Age must not be used to rank or assess candidates.
+
+## Technology Stack
+
+| Component | Technologies |
+| --- | --- |
+| AI engine API | Python, FastAPI, Pydantic |
+| AI inference | Ollama, `gemma3:1b` |
+| Current interview UI | HTML, CSS, JavaScript |
+| InterviewHub API | Python, FastAPI, Pydantic |
+| InterviewHub persistence | PostgreSQL 17, SQLAlchemy, Psycopg |
+| Database migrations | Alembic |
+| Testing | pytest, FastAPI TestClient / HTTPX, mocks |
+| Local orchestration | Docker, Docker Compose |
+| Planned unified portal | React, TypeScript |
+
+## Run Locally
+
+> These instructions describe the **current development setup**. InterviewHub and the AI engine are not yet integrated into a single login-based workflow. Do not supply real candidate information.
+
+### Prerequisites
+
+- Docker and Docker Compose.
+- Python 3.12 for local InterviewHub backend development.
+- Enough local RAM and disk space for Ollama and the selected model.
+
+### Start AI Interviewer
+
+From the repository root:
+
+```bash
+docker compose up -d --build
+```
+
+Pull the configured model if it is not already installed:
+
+```bash
+docker exec ai-interviewer-ollama ollama pull gemma3:1b
+```
+
+Open the existing frontend at **http://localhost:5000**. The AI API is available at **http://localhost:8000/docs**.
+
+To stop the AI Interviewer containers:
+
 ```bash
 docker compose down
 ```
 
-# Usage Notes and Limitations
+### Start the InterviewHub database
 
-## Application Usage Flow
+Create `interview-hub/.env` locally (this file must **never** be committed):
 
-Each time the application is opened, a new interview session is automatically initialized.
+```dotenv
+POSTGRES_DB=interviewhub
+POSTGRES_USER=interviewhub
+POSTGRES_PASSWORD=<replace-with-a-strong-random-password>
+```
 
-The user should first read the information provided in the popup window before starting the interview. After starting the interview, the AI interviewer guides the candidate through the predefined interview stages.
+From `interview-hub/`:
 
-At the end of the interview:
+```bash
+docker compose up -d db
+docker compose ps
+```
 
-- the candidate receives an AI-generated summary directly in the user interface
-- the complete interview transcript and additional analysis are stored locally
+PostgreSQL is bound to **127.0.0.1:5433** for local development. Its database files persist in a Docker named volume.
 
-The analysis generated by the application (keywords extraction and sentiment analysis) is not displayed to the candidate through the frontend. It is stored internally together with the interview data in: /data/interviews
+### Start the InterviewHub API
+
+From `interview-hub/backend/`, in a Python virtual environment with the dependencies installed:
+
+```bash
+python -m pip install -r requirements.txt
+python -m alembic upgrade head
+python -m uvicorn app.main:app --reload --port 8001
+```
+
+Open **http://localhost:8001/docs** for the InterviewHub API documentation, or **http://localhost:8001/health/database** to verify the database connection.
+
+The current database settings assume the API runs directly on the host/WSL and PostgreSQL runs in Docker. These settings will need updating when the platform API itself is containerized.
+
+### Run tests
+
+AI engine tests, from the repository root:
+
+```bash
+python -m pytest tests/ -q
+```
+
+InterviewHub tests, from `interview-hub/backend/`:
+
+```bash
+python -m pip install -r requirements-dev.txt
+python -m pytest -q
+```
+
+The InterviewHub API tests mock the database session; they do not replace a full PostgreSQL integration-test suite.
+
+## Development Roadmap
+
+The project is being developed incrementally, evolving from a standalone AI interviewer into a secure, scalable, AI-powered recruitment platform. Each phase introduces new functionality while prioritizing security, reliability, candidate privacy, and responsible AI usage.
+
+### Phase 1 — Foundation and Candidate Onboarding
+
+Establish the InterviewHub backend, PostgreSQL database, and Alembic migrations. Implement candidate registration, passwordless email verification, secure token management, and input validation. Introduce initial security measures, including Cloudflare Turnstile, rate limiting, and protection against automated registrations and abuse.
+
+### Phase 2 — Authentication and Interview Management
+
+Implement secure administrator authentication with multi-factor authentication (MFA), role-based access control (RBAC), and protected API endpoints. Introduce secure session management, single-attempt interview enforcement, session recovery, and interview status tracking. Ensure that candidate information, transcripts, summaries, and evaluations are accessible only to authorized users.
+
+### Phase 3 — Unified Web Application
+
+Develop a modern, responsive interface using React and TypeScript. Integrate the AI Interviewer engine with InterviewHub to provide a seamless candidate interview experience and a dedicated administrator dashboard. Include candidate management, interview monitoring, and evaluation review, alongside secure API communication and frontend protections against common web vulnerabilities.
+
+### Phase 4 — AI Evaluation and Recruitment Tools
+
+Improve the accuracy, consistency, and explainability of AI-generated summaries and feedback. Introduce job-specific evaluation criteria, evidence-based candidate assessments, and tools for reviewing and comparing applicants. Strengthen AI security through prompt injection defenses, output validation, bias testing, and evaluation consistency checks. Ensure human oversight, transparency, and responsible AI-assisted recruitment decisions.
+
+### Phase 5 — Testing, Security, and Deployment
+
+Prepare the application for production through comprehensive automated testing, integration and security testing, performance optimization, and scalable deployment. Implement HTTPS, encryption, secrets management, security headers, CSRF protection, audit logging, dependency vulnerability scanning, backup and recovery mechanisms, and monitoring. Establish CI/CD workflows, GDPR-aligned privacy safeguards, data retention and deletion policies, and ongoing security maintenance.
 
 ## Known Limitations
 
-The current implementation was designed as a functional prototype, therefore some limitations are still present.
+The application is currently under active development and is not yet suitable for production deployment. The following limitations are being addressed throughout the development roadmap.
 
-### Local Data Persistence
+- **Authentication and Authorization:** The existing AI Interviewer API does not enforce authentication or role-based access control. Secure administrator authentication, passwordless candidate access, and protected endpoints are planned.
 
-Interview data is currently stored as JSON files.
+- **Application Integration:** AI Interviewer and InterviewHub currently operate as separate components. A unified frontend, secure inter-service communication, and centralized interview management have not yet been implemented.
 
-When running the application multiple times, existing interview files may be overwritten instead of being managed as separate historical sessions.
+- **Data Persistence and Management:** The AI engine stores interviews in JSON files, while InterviewHub uses PostgreSQL. Centralized interview tracking, database-backed session management, and appropriate data retention and deletion mechanisms are planned.
 
-A production-ready implementation would replace this approach with a database solution and include:
+- **Candidate Verification and Abuse Prevention:** Email uniqueness does not establish candidate identity or prevent automated registrations. Email verification, bot protection, rate limiting, secure session handling, and single-attempt enforcement are still under development.
 
-- unique interview identifiers
-- persistent history management
-- candidate session management
-- better data organization
+- **AI Reliability and Security:** The local LLM may produce repetitive, inconsistent, or unsupported evaluations. Answer-reference validation ensures that cited responses exist but does not guarantee the accuracy of AI-generated conclusions. Further improvements will address evaluation consistency, prompt injection, output validation, and model reliability.
 
-### LLM Consistency
+- **Privacy and Data Protection:** Comprehensive access controls, encryption, audit logging, data retention policies, and GDPR-aligned personal data management have not yet been implemented. Real candidate information should not be processed until the necessary protections are established.
 
-Because the application relies on a local language model, there are rare situations where the model may lose track of the exact interview context or become slightly confused between consecutive questions.
+- **Recruitment Assessment and Fairness:** AI-generated assessments have not been validated for real-world employment decisions. Future evaluation tools will require job-related criteria, bias testing, explainable observations, human oversight, and appropriate regulatory compliance. The system must not autonomously make hiring or rejection decisions.
 
-This can happen especially when:
+- **Production Readiness:** Automated security testing, CI/CD pipelines, monitoring, backup and recovery procedures, and production deployment safeguards are still planned. The current implementation is intended for local development, experimentation, and testing.
 
-- previous answers are very short
-- multiple topics are mentioned in the same answer
-- the local model has limited reasoning capabilities
+## Development Workflow
 
-A larger language model would likely improve consistency and context understanding.
+Work is currently organized on feature branches, with commits and pushes at tested milestones. The InterviewHub foundation is being developed on `feature/interview-hub-setup`; changes will be merged into `main` when integration is appropriate.
 
-Further improvements could include:
+The README will be updated alongside meaningful changes so the distinction between **implemented**, **in progress**, and **planned** features stays accurate.
 
-- using a larger pretrained model
-- fine-tuning the model for interview scenarios
-- improving evaluation datasets for prompt optimization
-- adding additional validation layers before displaying generated questions
+---
 
-### Prototype Scope
-
-The current version focuses on demonstrating the AI interviewer workflow and the interaction between software components and an LLM.
-
-Additional features that could be implemented in a production version include:
-
-- user authentication
-- recruiter dashboard
-- database persistence
-- multiple interview templates
-- candidate comparison tools
-- improved AI-based evaluation methods
+*Originally developed as a Mini AI Interviewer assignment; now expanding into InterviewHub, a unified AI-assisted recruitment platform.*
