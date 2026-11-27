@@ -12,10 +12,17 @@ from sqlalchemy.exc import IntegrityError
 from app.database import get_db
 from app.models.candidate import Candidate
 from app.models.admin import Admin
+from app.models.interview_attempt import InterviewAttempt
+
 from app.schemas.candidate import CandidateCreate
 from app.schemas.admin_auth import AdminLoginRequest
 from app.schemas.email_verification import VerifyEmailRequest
 from app.schemas.login import LoginRequest, CompleteLoginRequest
+from app.schemas.interview_attempt import InterviewAttemptResponse
+from app.schemas.interview_start import InterviewStartResponse
+from app.schemas.interview_answer import CandidateAnswerRequest, InterviewAnswerResponse
+from app.schemas.current_interview import CurrentInterviewResponse
+
 from app.services.email_verification_service import create_verification_token, verify_email_token
 from app.services.email_service import send_verification_email, send_login_email
 from app.services.session_service import create_candidate_session, get_authenticated_candidate, revoke_candidate_session
@@ -23,7 +30,8 @@ from app.services.login_service import create_login_token, consume_login_token
 from app.services.admin_password_service import verify_admin_password
 from app.services.admin_mfa_service import verify_admin_totp
 from app.services.admin_session_service import create_admin_session, get_authenticated_admin, revoke_admin_session
-
+from app.services.interview_attempt_service import get_or_create_attempt, get_candidate_attempt
+from app.services.ai_engine_service import start_ai_interview, AIEngineUnavailableError, get_ai_interview_state, submit_ai_answer, AIEngineConflictError
 
 app = FastAPI(
     title="InterviewHub API",
@@ -412,3 +420,235 @@ def logout_admin(
     )
 
     return {"message": "Administrator logged out successfully"}
+
+@app.post(
+    "/interviews/attempt",
+    response_model=InterviewAttemptResponse,
+)
+def reserve_interview_attempt(
+    candidate: Candidate = Depends(require_candidate),
+    db: Session = Depends(get_db),
+):
+    try:
+        attempt = get_or_create_attempt(
+            db,
+            candidate.id,
+        )
+
+        db.commit()
+        db.refresh(attempt)
+
+    except Exception:
+        db.rollback()
+        raise
+
+    return attempt
+
+@app.get(
+    "/interviews/current",
+    response_model=CurrentInterviewResponse,
+)
+def get_current_interview(
+    candidate: Candidate = Depends(require_candidate),
+    db: Session = Depends(get_db),
+):
+    attempt = get_candidate_attempt(
+        db,
+        candidate.id,
+    )
+
+    if attempt is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Interview attempt not found",
+        )
+
+    stage = None
+    question = None
+    question_number = None
+
+    if attempt.status == "in_progress":
+        if attempt.interview_id is None:
+            raise HTTPException(
+                status_code=503,
+                detail="Interview state is temporarily unavailable",
+            )
+
+        try:
+            state = get_ai_interview_state(
+                attempt.interview_id
+            )
+
+        except AIEngineUnavailableError as exc:
+            raise HTTPException(
+                status_code=503,
+                detail="Interview state is temporarily unavailable",
+            ) from exc
+
+        stage = state["stage"]
+        question = state["question"]
+        question_number = state["question_number"]
+    elif attempt.status == "completed":
+        stage = "END"
+
+    return {
+        "id": attempt.id,
+        "status": attempt.status,
+        "created_at": attempt.created_at,
+        "started_at": attempt.started_at,
+        "completed_at": attempt.completed_at,
+        "stage": stage,
+        "question": question,
+        "question_number": question_number,
+    }
+
+@app.post(
+    "/interviews/start",
+    response_model=InterviewStartResponse,
+)
+def start_candidate_interview(
+    candidate: Candidate = Depends(require_candidate),
+    db: Session = Depends(get_db),
+):
+    try:
+        # Reserve the unique attempt before contacting the AI.
+        get_or_create_attempt(db, candidate.id)
+        db.commit()
+
+        # Serialize start requests for the same candidate.
+        attempt = db.scalar(
+            select(InterviewAttempt)
+            .where(
+                InterviewAttempt.candidate_id == candidate.id
+            )
+            .with_for_update()
+        )
+
+        if attempt is None:
+            raise RuntimeError(
+                "Interview attempt was not found"
+            )
+
+        if attempt.status == "completed":
+            raise HTTPException(
+                status_code=409,
+                detail="Interview already completed",
+            )
+
+        # Keep the AI interview ID stable across retries.
+        interview_id = attempt.interview_id or attempt.id
+
+        topic = os.getenv(
+            "INTERVIEW_TOPIC",
+            "Software Engineering",
+        )
+
+        result = start_ai_interview(
+            interview_id,
+            topic,
+        )
+
+        attempt.interview_id = interview_id
+        attempt.status = "in_progress"
+
+        if attempt.started_at is None:
+            attempt.started_at = datetime.now(timezone.utc)
+
+        db.commit()
+
+        return {
+            "attempt_id": attempt.id,
+            "interview_id": interview_id,
+            "status": attempt.status,
+            "stage": result["stage"],
+            "question": result["question"],
+        }
+
+    except AIEngineUnavailableError:
+        db.rollback()
+        raise HTTPException(
+            status_code=503,
+            detail="AI interview service is unavailable",
+        )
+
+    except Exception:
+        db.rollback()
+        raise
+
+@app.post(
+    "/interviews/answer",
+    response_model=InterviewAnswerResponse,
+)
+def submit_candidate_answer(
+    submission: CandidateAnswerRequest,
+    candidate: Candidate = Depends(require_candidate),
+    db: Session = Depends(get_db),
+):
+    try:
+        attempt = db.scalar(
+            select(InterviewAttempt)
+            .where(
+                InterviewAttempt.candidate_id == candidate.id
+            )
+            .with_for_update()
+        )
+
+        if attempt is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Interview attempt not found",
+            )
+
+        if (
+            attempt.status == "pending"
+            or attempt.interview_id is None
+        ):
+            raise HTTPException(
+                status_code=409,
+                detail="Interview has not started",
+            )
+
+        result = submit_ai_answer(
+            attempt.interview_id,
+            submission.question_number,
+            submission.answer,
+        )
+
+        if result["completed"]:
+            attempt.status = "completed"
+
+            if attempt.completed_at is None:
+                attempt.completed_at = datetime.now(
+                    timezone.utc
+                )
+
+        db.commit()
+
+        return {
+            "attempt_id": attempt.id,
+            "status": attempt.status,
+            "stage": result["stage"],
+            "question": result["question"],
+            "question_number": result["question_number"],
+            "completed": result["completed"],
+        }
+
+    except AIEngineConflictError as exc:
+        db.rollback()
+
+        raise HTTPException(
+            status_code=409,
+            detail="Answer conflicts with interview progress",
+        ) from exc
+
+    except AIEngineUnavailableError as exc:
+        db.rollback()
+
+        raise HTTPException(
+            status_code=503,
+            detail="AI interview service is unavailable",
+        ) from exc
+
+    except Exception:
+        db.rollback()
+        raise

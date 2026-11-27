@@ -3,7 +3,12 @@ from fastapi.testclient import TestClient
 from backend.main import app, interviewer_service
 from backend.models.interview import InterviewStage, InterviewFeedback, FeedbackPoint
 
-client = TestClient(app)
+client = TestClient(
+    app,
+    headers={
+        "X-Internal-API-Key": "test-internal-secret",
+    },
+)
 
 def fake_generate_question(interview):
     return "Fake interview question?"
@@ -16,6 +21,11 @@ def fake_generate_summary(interview):
 
 @pytest.fixture(autouse=True)
 def mock_llm(monkeypatch):
+    monkeypatch.setenv(
+        "AI_ENGINE_INTERNAL_KEY",
+        "test-internal-secret",
+    )
+    
     monkeypatch.setattr(
         interviewer_service,
         "generate_question",

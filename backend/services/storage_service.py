@@ -1,39 +1,72 @@
 import json
 import os
-from uuid import UUID
-from backend.models.interview import Interview
+import tempfile
 
+from pathlib import Path
+from uuid import UUID
+
+from backend.models.interview import Interview
 
 DATA_FOLDER = "data/interviews"
 
-
 class StorageService:
-
     def __init__(self):
-        os.makedirs(DATA_FOLDER, exist_ok=True)
+        Path(DATA_FOLDER).mkdir(parents=True, exist_ok=True)
 
+    def save_interview(
+        self,
+        interview_id: UUID,
+        interview: Interview,
+    ) -> None:
+        folder = Path(DATA_FOLDER)
+        folder.mkdir(parents=True, exist_ok=True)
 
-    def save_interview(self, interview_id: UUID, interview: Interview):
+        target = folder / f"interview_{interview_id}.json"
+        temporary_path = None
 
-        file_path = f"{DATA_FOLDER}/interview_{interview_id}.json"
+        try:
+            with tempfile.NamedTemporaryFile(
+                mode="w",
+                encoding="utf-8",
+                dir=folder,
+                prefix=f".interview_{interview_id}_",
+                suffix=".tmp",
+                delete=False,
+            ) as temporary:
+                temporary_path = Path(temporary.name)
 
-        with open(file_path, "w", encoding="utf-8") as file:
-            json.dump(
-                interview.model_dump(),
-                file,
-                indent=4,
-                default=str
-            )
+                json.dump(
+                    interview.model_dump(mode="json"),
+                    temporary,
+                    indent=4,
+                    ensure_ascii=False,
+                )
 
+                temporary.flush()
+                os.fsync(temporary.fileno())
 
-    def load_interview(self, interview_id: UUID):
+            os.replace(temporary_path, target)
 
-        file_path = f"{DATA_FOLDER}/interview_{interview_id}.json"
+        finally:
+            if (
+                temporary_path is not None
+                and temporary_path.exists()
+            ):
+                temporary_path.unlink()
 
-        if not os.path.exists(file_path):
+    def load_interview(
+        self,
+        interview_id: UUID,
+    ) -> Interview | None:
+        path = (
+            Path(DATA_FOLDER)
+            / f"interview_{interview_id}.json"
+        )
+
+        if not path.exists():
             return None
 
-        with open(file_path, "r", encoding="utf-8") as file:
+        with path.open("r", encoding="utf-8") as file:
             data = json.load(file)
 
-        return Interview(**data)
+        return Interview.model_validate(data)
